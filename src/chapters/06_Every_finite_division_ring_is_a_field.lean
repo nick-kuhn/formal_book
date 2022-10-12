@@ -26,6 +26,7 @@ import algebra.group.conj
 import linear_algebra.finite_dimensional
 import linear_algebra.basis
 import data.polynomial.basic
+import group_theory.group_action.quotient
 
 open finset subring polynomial
 open_locale big_operators nat polynomial
@@ -64,7 +65,7 @@ section wedderburn
 variables {R : Type*}  [decidable_eq R] [division_ring R]
 
 
-noncomputable theorem wedderburn (h: fintype R): is_field R :=
+theorem wedderburn (h: fintype R): is_field R :=
 begin
   let Z := center R,
   haveI : fintype R := h,
@@ -72,7 +73,10 @@ begin
 
 
   obtain ⟨n, h_card⟩ := vector_space.card_fintype Z R,
-  have h_n : n ≠ 0 := by sorry,
+  have h_n : n ≠ 0 := by
+  { by_contra,
+    rw [h, pow_zero] at h_card,
+    exact absurd (eq.trans_gt h_card fintype.one_lt_card) (lt_self_iff_false 1).mp,},
 
   set q := fintype.card Z,
 
@@ -80,17 +84,29 @@ begin
   --conjugacy classes with more than one element
   -- indexed from 1 to t in the book, here we use "S".
   let S := {A : conj_classes Rˣ | fintype.card A.carrier > 1}.to_finset,
-  let n_k :conj_classes Rˣ → ℕ := λ A, fintype.card
-    (set.centralizer ({(quotient.out' (A : conj_classes Rˣ))} : set Rˣ)),
 
+  have h := λ A : conj_classes Rˣ, (vector_space.card_fintype Z
+    (set.centralizer ({((quotient.out' A : Rˣ) : R)} : set R))),
+  choose  a b using h,
+
+  let n_k :conj_classes Rˣ → ℕ := λ A, (vector_space.card_fintype
+    (set.centralizer ({((quotient.out' A : Rˣ) : R)} : set R))).cho,
+
+  have : ∀ A : conj_classes Rˣ, q ^ (n_k A) - 1 ∣ q ^ n - 1, by
+  { intro A,
+    dsimp [has_dvd.dvd],
+    use fintype.card A.carrier,
+    haveI : mul_semiring_action (conj_act Rˣ) R := infer_instance,
+    convert mul_action.card_orbit_mul_card_stabilizer_eq_card_group (conj_act Rˣ)
+      ((quotient.out' A : Rˣ) : R),
+  },
   --class  formula (1)
   suffices : (q : ℤ) ^ n - 1 = q - 1  + ∑ A in S, (q ^ n - 1) / (q ^ (n_k A) - 1), by
 
   { have h_n_k_A_dvd: ∀ A : conj_classes Rˣ, (n_k A ∣ n) := sorry,
 
   --rest of proof
-  have h_n_pos: 0 < n := by {sorry},
-  have h_phi_dvd_q_sub_one : (phi n).eval q  ∣  (q - 1) := by
+   have h_phi_dvd_q_sub_one : (phi n).eval q  ∣  (q - 1) := by
   { have h₁_dvd : (phi n).eval q ∣ (X ^ n - 1).eval q  := by {
       refine eval_dvd _,
       exact phi_dvd n, },
