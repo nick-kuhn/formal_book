@@ -193,8 +193,8 @@ def ConjAct_stabilizer_centralizer_eq :
 
 -- Orbit stabilizer theorem, specialized to conjugacy classes
 lemma orbit_stabilizer [Fintype R] (A: ConjClasses Rˣ) [Fintype A.carrier] :
-  Fintype.card Rˣ = (Fintype.card A.carrier) *
-    (@Fintype.card  (Set.centralizer {ConjClasses.exists_rep A|>.choose}) (
+    Fintype.card Rˣ = (Fintype.card A.carrier) *
+      (@Fintype.card  (Set.centralizer {ConjClasses.exists_rep A|>.choose}) (
       Fintype.ofFinite (Set.centralizer {ConjClasses.exists_rep A|>.choose}))) := by
   letI := Fintype.ofFinite (Set.centralizer {ConjClasses.exists_rep A|>.choose})
   letI : Fintype ↑(MulAction.orbit (ConjAct Rˣ) (ConjClasses.exists_rep A|>.choose))
@@ -208,6 +208,10 @@ lemma orbit_stabilizer [Fintype R] (A: ConjClasses Rˣ) [Fintype A.carrier] :
   convert this
   rw [ConjAct.orbit_eq_carrier_conjClasses, (ConjClasses.exists_rep A|>.choose_spec)]
 
+
+example (S T : Subring R) (h : S ≤ T) : Module S T := by
+  have := inclusion h
+  exact RingHom.toModule this
 
 section wedderburn
 
@@ -236,10 +240,6 @@ theorem wedderburn (h: Fintype R): IsField R := by
     intro A
     exact ConjClasses.instFintypeElemCarrier
 
-  have : ∀ (A :  ConjClasses Rˣ), Fintype ↑(Set.centralizer {Quotient.out' A}) := by
-    intro A
-    exact setFintype (Set.centralizer {Quotient.out' A})
-
   letI fintypea : ∀ (A :  ConjClasses Rˣ), Fintype ↑{A |
       have := finclassa A; Fintype.card ↑(ConjClasses.carrier A) > 1} := by
     intro A
@@ -256,11 +256,26 @@ theorem wedderburn (h: Fintype R): IsField R := by
                   Fintype.card ↑(ConjClasses.carrier A) > 1}
 
   let S' := ConjClasses.noncenter Rˣ
-  haveI : Fintype S' := Fintype.ofFinite ↑S'
+  letI : Fintype S' := Fintype.ofFinite ↑S'
+  letI (A : S') : Fintype (A.val.carrier) := finclassa ↑A
+
   let S := S'.toFinset
-  --This was wrong: n_k should be the dimension of the centralizer( in `R`), not the cardinality
-  let n_k : S' → ℕ := sorry -- fun A => Fintype.card
-    --(Set.centralizer ({(Quotient.out' (A : ConjClasses Rˣ))} : Set Rˣ))
+
+  let Centr := fun (A : S') =>
+    Subring.centralizer ({(A.val.exists_rep.choose : R)} : Set R)
+
+  letI (A : S') : Module Z (Centr A) := by
+    have := Subring.center_le_centralizer ({(A.val.exists_rep.choose : R)} : Set R)
+    apply RingHom.toModule <| inclusion this
+
+  letI (A : S') : Fintype (Centr A) := by
+    exact Fintype.ofFinite { x // x ∈ Centr ↑A }
+
+
+  let n_k_h_k (A : S') : _ := VectorSpace.card_fintype Z (Centr A)
+
+  let n_k (A : S') : ℕ := (n_k_h_k A).choose
+  let h_k (A : S') := (n_k_h_k A).choose_spec
 
   have h_R: Fintype.card Rˣ = q ^ n - 1 := by
     have : Fintype.card Rˣ + 1 = Fintype.card R := Fintype.card_eq_card_units_add_one.symm
@@ -284,10 +299,19 @@ theorem wedderburn (h: Fintype R): IsField R := by
       Equiv.inv { x // x ∈ Submonoid.center R }ˣ
   rw [h_R, Fintype.card_congr (e.toEquiv.trans f), h_Z] at H1
 
-  -- Orbit stabilizer formula for non-singleton conjugacy classes
-  have : ∀ A : S', (Fintype.card <| ConjClasses.carrier (A : ConjClasses Rˣ)) * (q ^ (n_k A) - 1)
-      = q ^ n - 1 := by
+  have H_stab_card (A : S') :
+      q ^ n_k A - 1 = Fintype.card ↑(Set.centralizer {A.val.exists_rep.choose}) := by
+    rw [← h_k A]
+    letI : GroupWithZero (Centr A) := sorry
+    change Fintype.card (Centr A) - 1 = _
+    rw [Fintype.card_eq_card_units_add_one]
+    simp
     sorry
+  -- Orbit stabilizer formula for non-singleton conjugacy classes
+  have H_orb_stab (A : S') : (Fintype.card A.val.carrier) * (q ^ (n_k A) - 1)  = q ^ n - 1 := by
+    convert (orbit_stabilizer A.val).symm
+    · convert H_stab_card A
+    · exact h_R.symm
 
   have h1 : (q ^ n - 1) = q - 1  + ∑ A : S', (q ^ n - 1) / (q ^ (n_k A) - 1) := by
     convert H1
@@ -332,7 +356,6 @@ theorem wedderburn (h: Fintype R): IsField R := by
       simp [hq_pow_pos n]
     simp [hq] at h1'
     simp [h1'] at h₁_dvd
-    rw [← hq] at h₁_dvd
     exact (Int.dvd_add_left h₂_dvd).mp h₁_dvd
 
   by_contra
