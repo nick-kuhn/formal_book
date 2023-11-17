@@ -209,11 +209,15 @@ lemma orbit_stabilizer [Fintype R] (A: ConjClasses Rˣ) [Fintype A.carrier] :
   rw [ConjAct.orbit_eq_carrier_conjClasses, (ConjClasses.exists_rep A|>.choose_spec)]
 
 
+lemma centralizer_units_commute (x : Rˣ) :
+    (Subring.centralizer ({(x : R)} : Set R))ˣ ≃ (Set.centralizer {x}) := sorry
+
 example (S T : Subring R) (h : S ≤ T) : Module S T := by
   have := inclusion h
   exact RingHom.toModule this
 
 section wedderburn
+
 
 theorem wedderburn (h: Fintype R): IsField R := by
   -- Z is a finite field ...
@@ -271,6 +275,8 @@ theorem wedderburn (h: Fintype R): IsField R := by
   letI (A : S') : Fintype (Centr A) := by
     exact Fintype.ofFinite { x // x ∈ Centr ↑A }
 
+  let Centr_congr (A : S') : { x // x ∈ Centr A }ˣ ≃ (Set.centralizer {A.val.exists_rep.choose}) :=
+    centralizer_units_commute _
 
   let n_k_h_k (A : S') : _ := VectorSpace.card_fintype Z (Centr A)
 
@@ -302,11 +308,12 @@ theorem wedderburn (h: Fintype R): IsField R := by
   have H_stab_card (A : S') :
       q ^ n_k A - 1 = Fintype.card ↑(Set.centralizer {A.val.exists_rep.choose}) := by
     rw [← h_k A]
-    letI : GroupWithZero (Centr A) := sorry
+    letI : GroupWithZero (Centr A) := Fintype.groupWithZeroOfCancel { x // x ∈ Centr A }
     change Fintype.card (Centr A) - 1 = _
     rw [Fintype.card_eq_card_units_add_one]
-    simp
-    sorry
+    rw [Nat.add_sub_cancel]
+    exact Fintype.card_congr <| Centr_congr A
+
   -- Orbit stabilizer formula for non-singleton conjugacy classes
   have H_orb_stab (A : S') : (Fintype.card A.val.carrier) * (q ^ (n_k A) - 1)  = q ^ n - 1 := by
     convert (orbit_stabilizer A.val).symm
